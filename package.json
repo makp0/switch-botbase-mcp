@@ -1,0 +1,24 @@
+{
+  "name": "switch-botbase-mcp",
+  "version": "0.1.0",
+  "description": "USB Botbase controller and screenshots for AI clients over MCP",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "repository": "github:makp0/switch-botbase-mcp",
+  "engines": { "bun": ">=1.3.14" },
+  "scripts": {
+    "start": "bun src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.3",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "usb": "^2.19.1",
+    "zod": "^4.6.7"
+  }
+}
