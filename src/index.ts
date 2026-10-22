@@ -2,8 +2,12 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { Botbase } from "./botbase.ts";
 import { createServer } from "./server.ts";
 import { openUsb } from "./usb.ts";
+import { openTcp } from "./tcp.ts";
 
-const bot = new Botbase(openUsb);
+const host = process.env.SWITCH_HOST;
+const bot = host
+  ? new Botbase(() => openTcp(host, Number(process.env.SWITCH_PORT ?? 6000)), "TCP")
+  : new Botbase(openUsb);
 const server = createServer(bot);
 let closing = false;
 async function shutdown() {

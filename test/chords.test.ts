@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { usbCommands } from "../src/usb.ts";
 import { Botbase } from "../src/botbase.ts";
 
 test("overlay chord holds L, right-stick click, and down together", async () => {
@@ -6,7 +7,7 @@ test("overlay chord holds L, right-stick click, and down together", async () => 
   const snapshots: string[][] = [];
   let payload = false;
   let body = false;
-  const bot = new Botbase(() => ({
+  const bot = new Botbase(() => usbCommands({
     async write(data) {
       payload = !payload;
       if (payload) return;

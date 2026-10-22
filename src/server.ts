@@ -3,22 +3,23 @@ import { setTimeout as sleep } from "node:timers/promises";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { actionsSchema, Botbase } from "./botbase.ts";
+import { version } from "../package.json";
 
 const text = (message: string): CallToolResult => ({ content: [{ type: "text", text: message }] });
 const image = (data: Buffer): CallToolResult => ({ content: [{ type: "image", data: data.toString("base64"), mimeType: "image/jpeg" }] });
 
 export function createServer(bot: Botbase) {
-  const server = new McpServer({ name: "switch-botbase", version: "0.1.0" }, {
-    instructions: "Control the USB-connected Nintendo Switch. Start with switch_screenshot; observe again after short actions. Use switch_act for buttons (including chords), sticks, and waits. Stick positive X is right, positive Y is up. Inputs release automatically. switch_stop cancels queued/running actions and detaches the virtual controller. Do not assume a command achieved its goal; inspect screenshots. This is a real console: follow the user's intent before buying, deleting, or changing saves/settings.",
+  const server = new McpServer({ name: "switch-botbase", version }, {
+    instructions: "Control the Nintendo Switch over USB or TCP. Start with switch_screenshot; observe again after short actions. Use switch_act for buttons (including chords), sticks, and waits. Stick positive X is right, positive Y is up. Inputs release automatically. switch_stop cancels queued/running actions and detaches the virtual controller. Do not assume a command achieved its goal; inspect screenshots. This is a real console: follow the user's intent before buying, deleting, or changing saves/settings.",
   });
   const call = async (operation: () => Promise<CallToolResult>): Promise<CallToolResult> => {
     try { return await operation(); }
     catch (error) { return { ...text(error instanceof Error ? error.message : String(error)), isError: true }; }
   };
   server.registerTool("switch_status", {
-    description: "Check the USB connection and report Botbase version without sending controller input.",
+    description: "Check the configured USB or TCP connection and report Botbase version without sending controller input.",
     inputSchema: {}, annotations: { readOnlyHint: true, openWorldHint: false },
-  }, () => call(() => bot.run(async () => text(`USB Botbase ${await bot.version()} connected (057e:3000).`))));
+  }, () => call(() => bot.run(async () => text(`${bot.transport} Botbase ${await bot.version()} connected.`))));
   server.registerTool("switch_screenshot", {
     description: "See the current Switch screen as a JPEG image. Use before acting and to verify results.",
     inputSchema: {}, annotations: { readOnlyHint: true, openWorldHint: false },
@@ -38,7 +39,7 @@ export function createServer(bot: Botbase) {
     } finally { extra.signal.removeEventListener("abort", cancel); }
   })));
   server.registerTool("switch_stop", {
-    description: "Cancel running and queued actions, cancel Botbase sequences/touches, and detach the virtual controller. Works between USB transfers; an unplugged console cannot receive stop commands.",
+    description: "Cancel running and queued actions, cancel Botbase sequences/touches, and detach the virtual controller. Works between transfers; a disconnected console cannot receive stop commands.",
     inputSchema: {}, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, () => {
     bot.cancel();

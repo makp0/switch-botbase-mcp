@@ -3,9 +3,17 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { fileURLToPath } from "node:url";
 
-test.skipIf(process.env.SWITCH_HARDWARE_TEST !== "1")("real stdio server reads USB Botbase version and screenshot", async () => {
+test.skipIf(process.env.SWITCH_HARDWARE_TEST !== "1")("real stdio server reads Botbase version and screenshot over configured transport", async () => {
   const client = new Client({ name: "hardware-check", version: "1" });
-  const transport = new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL("../src/index.ts", import.meta.url))], stderr: "pipe" });
+  const env: Record<string, string> = {};
+  for (const name of ["SWITCH_HOST", "SWITCH_PORT"]) {
+    if (process.env[name] !== undefined) env[name] = process.env[name]!;
+  }
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [fileURLToPath(new URL("../src/index.ts", import.meta.url))],
+    stderr: "pipe", env,
+  });
   let stderr = "";
   transport.stderr?.on("data", data => { stderr += data.toString(); });
   try {
@@ -13,8 +21,8 @@ test.skipIf(process.env.SWITCH_HARDWARE_TEST !== "1")("real stdio server reads U
     const tools = await client.listTools();
     expect(tools.tools).toHaveLength(4);
     const status = await client.callTool({ name: "switch_status", arguments: {} });
-    expect(status.isError).not.toBe(true);
     console.error(JSON.stringify(status.content));
+    expect(status.isError).not.toBe(true);
     const result = await client.callTool({ name: "switch_screenshot", arguments: {} });
     expect(result.isError).not.toBe(true);
     const content = result.content as Array<{ type: string; data?: string; mimeType?: string }>;

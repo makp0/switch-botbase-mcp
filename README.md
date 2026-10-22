@@ -2,18 +2,18 @@
 
 [![CI](https://github.com/makp0/switch-botbase-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/makp0/switch-botbase-mcp/actions/workflows/ci.yml)
 
-Let an AI see and control a USB-connected Nintendo Switch through
+Let an AI see and control a Nintendo Switch over USB or Wi-Fi through
 [USB Botbase](https://github.com/Koi-3088/usb-botbase). Built with **Bun and
 TypeScript**, using the MCP SDK and native USB access. No Python bridge,
-network service, or AI API key is required by this server. Your MCP client
+separate network service, or AI API key is required by this server. Your MCP client
 supplies the AI; use a model/client that can view image tool results.
 
 ## Set up the Switch
 
 Requires a Switch running compatible custom firmware with USB Botbase installed,
-enabled, and configured for `usb` mode. Connect it with a data-capable USB cable.
-This server targets USB Botbase's device `057e:3000`; it does not install firmware
-or connect over Wi-Fi.
+enabled. USB mode is the default: configure Botbase for `usb` and connect a
+data-capable cable (device `057e:3000`). For Wi-Fi, see below. This server does
+not install firmware.
 
 **Recommended installer: [switchpack](https://github.com/makp0/switchpack)**,
 a declarative homebrew installer with pinned versions, checksums, and USB MTP or
@@ -22,8 +22,35 @@ mounted-SD installation. Use a switchpack version with **sysmodule package and
 restricted to `switch/` cannot install Botbase; upgrade when those features are
 available. Alternatively, use the
 [upstream Botbase installation instructions](https://github.com/Koi-3088/usb-botbase#installation).
-Reboot after enabling the sysmodule, leave any MTP responder, and close other
-Botbase clients before connecting this server.
+Reboot after enabling the sysmodule and close other Botbase clients before
+connecting this server. In USB mode, leave any MTP responder first.
+
+## Wi-Fi control while DBI uses USB MTP
+
+The same USB Botbase module supports TCP. Back up
+`atmosphere/contents/430000000000000B/config.cfg`, replace its contents with
+`wifi`, and reboot the Switch. Then set `SWITCH_HOST` to the Switch’s LAN IP
+in the MCP server environment. `SWITCH_PORT` defaults to `6000`.
+
+```toml
+[mcp_servers.switch.env]
+SWITCH_HOST = "192.168.1.123"
+```
+
+Restart the MCP server after changing its environment. Without `SWITCH_HOST`,
+the server uses USB. To return the console to USB mode, restore `usb` in the
+Botbase config and reboot. Botbase selects one mode per boot; TCP control lets
+DBI use USB for MTP without competing for the USB interface. Screenshots and
+controller commands use the same four MCP tools in either mode.
+
+Botbase TCP has no authentication; use it only on a trusted LAN and do not expose
+port 6000 to the internet. Wi-Fi needs to stay connected, including in DBI.
+Hardware coexistence with DBI MTP was verified on 2026-10-22: TCP screen capture
+and B/X navigation worked while USB MTP remained usable for switchpack.
+
+With a switchpack version supporting `configFiles`, declare `config.cfg` as
+`"wifi"` there so installs and updates preserve the selected mode. With older
+versions, omit the packaged config mapping before editing the file manually.
 
 ## Install the server
 
@@ -133,7 +160,7 @@ actions like purchases, deletions, and save changes.
 
 ## Verification and recovery
 
-`bun test` uses simulated USB and MCP transports and does not touch a console.
+`bun test` uses simulated USB, loopback TCP, and MCP transports; it does not touch a console.
 Hardware tests are explicitly enabled:
 
 ```sh
@@ -151,12 +178,23 @@ right/left HOME navigation, and stop. Chord and cancellation behavior are
 covered by simulated tests; overlay shortcuts were not tested on hardware.
 Long-running gameplay stability has not been established.
 
-All tool calls share one queue to prevent interleaved USB frames. Stop aborts
+TCP was verified on 2026-10-22 after switching Botbase 2.5 to Wi-Fi: a fresh
+stdio MCP client read its version, captured JPEG screenshots and moved the HOME
+selection right then left. DBI/MTP coexistence was also verified: Wi-Fi B exited
+MTP, X reopened it, and switchpack successfully checked SD files over USB. The hardware
+test explicitly forwards SWITCH_HOST/SWITCH_PORT to the server subprocess.
+
+Later DBI navigation was unreliable: the selection moved even with the virtual
+controller detached. Its cause is unresolved; the earlier B/X checks establish
+basic coexistence, not reliable control of every DBI operation. Sphaira menu
+navigation and the Ownfoil connection were subsequently verified.
+
+All tool calls share one queue to prevent interleaved protocol frames. Stop aborts
 active waits and queued operations, releases active inputs, then detaches the
-controller. Cancellation takes effect between transfers; each transfer times
+controller. Cancellation takes effect between transfers; each USB transfer or TCP I/O wait times
 out after five seconds. Graceful shutdown releases/detaches inputs too.
 
-A USB/protocol error faults the connection and never replays an input. Check
+A transport/protocol error faults the connection and never replays an input. Check
 the console and restart the server before proceeding; stale USB replies may
 require restarting Botbase/the console. If the cable is disconnected or the
 process is force-killed, cleanup cannot be guaranteed. Reconnect and use stop;

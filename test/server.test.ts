@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Botbase } from "../src/botbase.ts";
+import { usbCommands } from "../src/usb.ts";
 import { createServer } from "../src/server.ts";
 
 test("MCP exposes controls, returns images, and rejects invalid input before USB access", async () => {
@@ -11,7 +12,7 @@ test("MCP exposes controls, returns images, and rejects invalid input before USB
   const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
   const bot = new Botbase(() => {
     connections++;
-    return {
+    return usbCommands({
       async write(data) { if (data.toString() === "pixelPeek" || data.toString() === "getVersion") command = data.toString(); },
       async read() {
         if (body) { const data = body; body = undefined; return data; }
@@ -19,7 +20,7 @@ test("MCP exposes controls, returns images, and rejects invalid input before USB
         const header = Buffer.alloc(4); header.writeUInt32LE(body.length); return header;
       },
       async close() {},
-    };
+    });
   });
   const server = createServer(bot);
   const client = new Client({ name: "test", version: "1" });

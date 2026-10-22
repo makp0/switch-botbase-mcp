@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { Botbase, actionsSchema } from "../src/botbase.ts";
-import type { Link } from "../src/usb.ts";
+import type { Link } from "../src/transport.ts";
+import { usbCommands } from "../src/usb.ts";
 
 function mockLink() {
   const writes: Buffer[] = [];
@@ -15,7 +16,7 @@ function mockLink() {
     header.writeUInt32LE(data.length);
     reads.push(header, data);
   }
-  return { link, writes, reads, reply, commands: () => writes.filter((_, i) => i % 2 === 1).map(b => b.toString()) };
+  return { link: usbCommands(link), writes, reads, reply, commands: () => writes.filter((_, i) => i % 2 === 1).map(b => b.toString()) };
 }
 
 test("USB framing adds two to payload length and reassembles split replies", async () => {

@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { z } from "zod";
-import type { Link } from "./usb.ts";
+import type { CommandTransport } from "./transport.ts";
 
 export const buttons = ["A", "B", "X", "Y", "L", "R", "ZL", "ZR", "PLUS", "MINUS", "DUP", "DDOWN", "DLEFT", "DRIGHT", "LSTICK", "RSTICK", "HOME", "CAPTURE"] as const;
 const duration = z.number().int().min(50).max(5000);
@@ -14,14 +14,14 @@ export const actionsSchema = z.array(actionSchema).min(1).max(30).refine(
   "Total requested action duration must be at most 15000ms",
 );
 
-/** USB framing from USB Botbase: two transfers out, length-prefixed binary replies. */
+/** Botbase commands over USB binary framing or TCP newline framing. */
 export class Botbase {
-  private link?: Link;
+  private link?: CommandTransport;
   private fault?: Error;
   private tail: Promise<unknown> = Promise.resolve();
   private pending = new Set<AbortController>();
 
-  constructor(private readonly connect: () => Link | Promise<Link>) {}
+  constructor(private readonly connect: () => CommandTransport | Promise<CommandTransport>, readonly transport: "USB" | "TCP" = "USB") {}
 
   run<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
     const controller = new AbortController();
@@ -43,27 +43,9 @@ export class Botbase {
     if (this.fault) throw this.fault;
     this.link ??= await this.connect();
     try {
-      const payload = Buffer.from(command, "ascii");
-      const header = Buffer.alloc(4);
-      header.writeUInt32LE(payload.length + 2);
-      await this.link.write(header);
-      await this.link.write(payload);
-      if (!reply) return Buffer.alloc(0);
-      const responseHeader = await this.link.read(4);
-      if (responseHeader.length !== 4) throw new Error("Incomplete USB response header");
-      const size = responseHeader.readUInt32LE();
-      if (size === 0 || size > 8 * 1024 * 1024) throw new Error(`Invalid response size: ${size}`);
-      const chunks: Buffer[] = [];
-      let received = 0;
-      while (received < size) {
-        const chunk = await this.link.read(Math.min(16384, size - received));
-        if (!chunk.length || chunk.length > size - received) throw new Error("Invalid USB response chunk");
-        chunks.push(chunk);
-        received += chunk.length;
-      }
-      return Buffer.concat(chunks, size);
+      return await this.link.command(command, reply);
     } catch (error) {
-      this.fault = new Error(`USB communication failed: ${error instanceof Error ? error.message : String(error)}. No inputs were retried. Restart the MCP server and check the Switch; held inputs may need releasing.`, { cause: error });
+      this.fault = new Error(`${this.transport} communication failed: ${error instanceof Error ? error.message : String(error)}. No inputs were retried. Restart the MCP server and check the Switch; held inputs may need releasing.`, { cause: error });
       throw this.fault;
     }
   }
