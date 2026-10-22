@@ -207,16 +207,15 @@ Windows may require WinUSB via Zadig and has not been tested here.
 
 ## Releases
 
-CI runs typechecking and tests on macOS and Linux for main, PRs, and `v*` tags.
-Push a version tag after updating `package.json` and `bun.lock`:
+[Release Please](https://github.com/googleapis/release-please) generates
+`CHANGELOG.md`, version bumps, release PRs and release notes from Conventional
+Commits. Merge `feat:` or `fix:` changes into `main`, review the generated release
+PR, then merge it to create a draft tag/release. The release workflow checks that
+exact tag on macOS and Linux before publishing the draft. Software-only CI
+explicitly excludes the opt-in hardware test file.
 
-```sh
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-After checks pass, CI creates a GitHub release with generated notes and GitHub's
-source archives. Install releases from source with Bun as above. Standalone
-binaries are not distributed because the USB native addon must remain available
-for the host platform. The project is MIT licensed; dependencies retain their
-own licenses (including libusb's LGPL license).
+See [the release workflow](docs/releasing.md). Install published source archives
+with Bun and their frozen lockfile. Standalone binaries are not distributed
+because the USB native addon must remain available for the host platform.
+The project is MIT licensed; dependencies retain their own licenses (including
+libusb’s LGPL license).

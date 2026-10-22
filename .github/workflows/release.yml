@@ -1,0 +1,47 @@
+name: Release
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release Please draft release tag
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing draft release tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ inputs.tag }}
+  publish:
+    needs: check
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Verify version and publish the generated source release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          python3 -c 'import json,os; assert os.environ["TAG"] == "v" + json.load(open("package.json"))["version"], "Tag must match package.json version"'
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != true ]; then
+            echo 'Refusing to change a published release.' >&2
+            exit 1
+          fi
+          gh release edit "$TAG" --draft=false --latest

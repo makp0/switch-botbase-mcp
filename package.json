@@ -1,6 +1,6 @@
 {
   "name": "switch-botbase-mcp",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "USB and Wi-Fi Botbase controller and screenshots for AI clients over MCP",
   "type": "module",
   "private": true,
